@@ -1,0 +1,98 @@
+plugins {
+	id 'java'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'java-library'	// api와 implementation을 구분하는 라이브러리용 plugin
+	id 'maven-publish'	// 배포를 위한 plugin
+}
+
+group = 'com.portolio.common'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	api 'org.springframework.boot:spring-boot-starter-aop'		// AOP
+	// --- 톰캣을 제외한 웹 관련 기능 ---
+	api ("org.springframework.boot:spring-boot-starter-web"){
+		exclude(group: "org.springframework.boot", module: "spring-boot-starter-tomcat")
+	}
+	// TraceID를 위한 Micrometer Tracing
+	api 'io.micrometer:micrometer-tracing-bridge-brave'
+	// 유틸리티성 라이브러리
+	api 'org.apache.commons:commons-lang3'
+	// Excel 처리를 위한 Apache POI
+	api("org.apache.poi:poi-ooxml:5.2.5")
+
+	// lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		// Spring Boot3.5.4가 권장하는 버전들을 자동으로 관리
+		mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.4")
+	}
+}
+
+// publishing 설정: GitHubPackages로 배포하기 위한 핵심
+publishing{
+	publications {
+		maven(MavenPublication) {
+			from components.java
+
+			// github packages 사용을 위한 명확히 표기
+			groupId = 'com.portfolio.common'
+			artifactId = 'system'	// 원하는 artifactId 명확히 지정
+			version = '0.0.1-SNAPSHOT'
+
+			// version mapping
+			versionMapping {
+				// 'api'로 선언된 의존성에 대한 버전 매핑
+				usage('java-api'){
+					fromResolutionResult()
+				}
+				// 'implementation' 선언된 의존성에 대한 버전 매핑
+				usage('java-runtime'){
+					fromResolutionResult()
+				}
+			}
+		}
+	}
+	repositories{
+		maven{
+			name = "GitHubPackages"
+			// System.getenv = .github/workflows/publish.yml의 env 설정
+			def repoPath = System.getenv("GPR_SYS_PATH") ?: project.findProperty("gpr.sys.path")
+			// URL: https://maven.pkg.github.com/{조직명}/{저장소}
+			url = "https://maven.pkg.github.com/${repoPath}"
+			credentials{
+				// CI환경(github actions)과 로컬PC 모두 지원하는 방식
+				username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")
+				password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token")
+			}
+		}
+	}
+}
+
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
