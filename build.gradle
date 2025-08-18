@@ -1,5 +1,4 @@
 plugins {
-	id 'java'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'java-library'	// api와 implementation을 구분하는 라이브러리용 plugin
 	id 'maven-publish'	// 배포를 위한 plugin
@@ -26,29 +25,64 @@ repositories {
 
 dependencies {
 	api 'org.springframework.boot:spring-boot-starter-aop'		// AOP
+	api 'org.springframework.boot:spring-boot-starter-validation'	// Spring Validation (@Valid 등)
 	// --- 톰캣을 제외한 웹 관련 기능 ---
 	api ("org.springframework.boot:spring-boot-starter-web"){
 		exclude(group: "org.springframework.boot", module: "spring-boot-starter-tomcat")
 	}
-	// TraceID를 위한 Micrometer Tracing
-	api 'io.micrometer:micrometer-tracing-bridge-brave'
-	// 유틸리티성 라이브러리
-	api 'org.apache.commons:commons-lang3'
-	// Excel 처리를 위한 Apache POI
-	api("org.apache.poi:poi-ooxml:5.2.5")
+// --- Servlet API ---
+// 웹 필터(OncePerRequestFilter 등)를 컴파일하기 위해 Servlet API가 필요.
+// starter-tomcat을 제외했으므로, API만 따로 추가함.
+// 'compileOnly'를 사용하면, 이 라이브러리는 컴파일 시에만 사용되고 최종 JAR 파일에는 포함되지 않음.
+// (실제 실행은 이 라이브러리를 사용하는 최종 애플리케이션이 담당하므로 이것이 올바른 방법.)
+	compileOnly 'jakarta.servlet:jakarta.servlet-api'
 
-	// lombok
+	// --- Tracing & Logging ---
+	api 'io.micrometer:micrometer-tracing-bridge-brave'
+	// --- Utility Libraries ---
+	api 'org.apache.commons:commons-lang3:3.14.0'
+	// --- Excel 처리를 위한 Apache POI ---
+	api 'org.apache.poi:poi-ooxml:5.2.5'
+	// --- CSV Parsing Library ---
+	api 'com.opencsv:opencsv:5.9' // OpenCSV 라이브러리 추가
+	// --- 인코딩 감지를 위한 라이브러리 추가 ---
+	api 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
+	// --- Cache (Redis) ---
+	// RedisCacheConfiguration, RedisCacheManager 등 포함.
+	api 'org.springframework.boot:spring-boot-starter-data-redis'
+	// --- HTTP Client & Resilience ---
+	// @CircuitBreaker, @Retry 어노테이션 및 관련 설정 포함.
+	api 'io.github.resilience4j:resilience4j-spring-boot3'
+	// CircuitBreaker 핵심 기능 모듈 (CircuitBreakerConfig 클래스 포함)
+	api 'io.github.resilience4j:resilience4j-circuitbreaker'
+	// Retry 핵심 기능 모듈 (RetryConfig 클래스 포함)
+	api 'io.github.resilience4j:resilience4j-retry'
+
+	// --- Lombok ---
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
+	// --- Test ---
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+	// Testcontainers와 JUnit 5 연동 라이브러리
+	testImplementation 'org.testcontainers:junit-jupiter'
+	// Testcontainers를 통해 Redis를 띄우기 위한 모듈
+	testImplementation 'org.testcontainers:redis'
+
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 dependencyManagement {
 	imports {
 		// Spring Boot3.5.4가 권장하는 버전들을 자동으로 관리
 		mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.4")
+		// Resilience4j가 관리하는 라이브러리 버전 목록
+		mavenBom "io.github.resilience4j:resilience4j-bom:2.2.0" // Resilience4j의 최신 안정화 버전
+		// Testcontainers가 관리하는 라이브러리 버전 목록
+		mavenBom "org.testcontainers:testcontainers-bom:1.19.8" // Testcontainers의 최신 안정화 버전
 	}
 }
 

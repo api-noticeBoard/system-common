@@ -1,0 +1,20 @@
+<configuration>
+
+    <!-- Spring Boot의 기본 로그 설정을 가져옵니다. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- Spring Boot 기본 콘솔 로그 패턴을 사용합니다. -->
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <!-- 로그 패턴에 %X{traceId} 가 없으므로, Aspect 로그만 깔끔하게 출력됩니다. -->
+<!--            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>-->
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- AOP 로그를 잘 보기 위해 com.yourcompany.common.aop 패키지의 로그 레벨을 DEBUG로 설정 -->
+    <logger name="com.portolio.common.system.aop" level="DEBUG"/>
+</configuration>
