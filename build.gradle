@@ -1,132 +1,129 @@
 plugins {
-	id 'io.spring.dependency-management' version '1.1.7'
-	id 'java-library'	// api와 implementation을 구분하는 라이브러리용 plugin
-	id 'maven-publish'	// 배포를 위한 plugin
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'java-library'    // api와 implementation을 구분하는 라이브러리용 plugin
+    id 'maven-publish'    // 배포를 위한 plugin
 }
 
-group = 'com.portolio.common'
+group = 'com.portfolio.common'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 configurations {
-	compileOnly {
-		extendsFrom annotationProcessor
-	}
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
-	api 'org.springframework.boot:spring-boot-starter-aop'		// AOP
-	api 'org.springframework.boot:spring-boot-starter-validation'	// Spring Validation (@Valid 등)
-	// --- 톰캣을 제외한 웹 관련 기능 ---
-	api ("org.springframework.boot:spring-boot-starter-web"){
-		exclude(group: "org.springframework.boot", module: "spring-boot-starter-tomcat")
-	}
-// --- Servlet API ---
-// 웹 필터(OncePerRequestFilter 등)를 컴파일하기 위해 Servlet API가 필요.
-// starter-tomcat을 제외했으므로, API만 따로 추가함.
-// 'compileOnly'를 사용하면, 이 라이브러리는 컴파일 시에만 사용되고 최종 JAR 파일에는 포함되지 않음.
-// (실제 실행은 이 라이브러리를 사용하는 최종 애플리케이션이 담당하므로 이것이 올바른 방법.)
-	compileOnly 'jakarta.servlet:jakarta.servlet-api'
+    api 'org.springframework.boot:spring-boot-starter-aop'        // AOP
+    api 'org.springframework.boot:spring-boot-starter-validation'    // Spring Validation (@Valid 등)
+    // --- Cache (Redis) ---
+    // RedisCacheConfiguration, RedisCacheManager 등 포함.
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
+    // --- Tracing & Logging ---
+    api 'io.micrometer:micrometer-tracing-bridge-brave'
+    // Spring Cache Abstraction: @Cacheable, @CacheEvict 등의 어노테이션을 사용하기 위해 필요합니다.
+    api 'org.springframework.boot:spring-boot-starter-cache'
 
-	// --- Tracing & Logging ---
-	api 'io.micrometer:micrometer-tracing-bridge-brave'
-	// --- Utility Libraries ---
-	api 'org.apache.commons:commons-lang3:3.14.0'
-	// --- Excel 처리를 위한 Apache POI ---
-	api 'org.apache.poi:poi-ooxml:5.2.5'
-	// --- CSV Parsing Library ---
-	api 'com.opencsv:opencsv:5.9' // OpenCSV 라이브러리 추가
-	// --- 인코딩 감지를 위한 라이브러리 추가 ---
-	api 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
-	// --- Cache (Redis) ---
-	// RedisCacheConfiguration, RedisCacheManager 등 포함.
-	api 'org.springframework.boot:spring-boot-starter-data-redis'
-	// --- HTTP Client & Resilience ---
-	// @CircuitBreaker, @Retry 어노테이션 및 관련 설정 포함.
-	api 'io.github.resilience4j:resilience4j-spring-boot3'
-	// CircuitBreaker 핵심 기능 모듈 (CircuitBreakerConfig 클래스 포함)
-	api 'io.github.resilience4j:resilience4j-circuitbreaker'
-	// Retry 핵심 기능 모듈 (RetryConfig 클래스 포함)
-	api 'io.github.resilience4j:resilience4j-retry'
+    // 추가: Lettuce 클라이언트 명시적 추가. RedisConnectionFactory 생성 보장.
+//		implementation 'io.lettuce:lettuce-core:6.4.0.RELEASE'  // Spring Boot 3.5.4와 호환 버전
+    // --- 톰캣을 제외한 웹 관련 기능 ---
+    implementation("org.springframework.boot:spring-boot-starter-web") {
+        exclude(group: "org.springframework.boot", module: "spring-boot-starter-tomcat")
+    }
+    // --- Utility ---
+    implementation 'org.apache.commons:commons-lang3:3.14.0'
+    // --- Excel 처리 ---
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+    // --- CSV Parsing ---
+    implementation 'com.opencsv:opencsv:5.9' // OpenCSV 라이브러리 추가
+    // --- 인코딩 감지 ---
+    implementation 'com.googlecode.juniversalchardet:juniversalchardet:1.0.3'
+    // --- HTTP Client & Resilience ---
+    // @CircuitBreaker, @Retry 어노테이션 및 관련 설정 포함.
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3'
+    // CircuitBreaker 핵심 기능 모듈 (CircuitBreakerConfig 클래스 포함)
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker'
+    // Retry 핵심 기능 모듈 (RetryConfig 클래스 포함)
+    implementation 'io.github.resilience4j:resilience4j-retry'
 
-	// --- Lombok ---
-	compileOnly 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
+    // --- Servlet API ---
+    // 웹 필터(OncePerRequestFilter 등)를 컴파일하기 위해 Servlet API가 필요.
+    // starter-tomcat을 제외했으므로, API만 따로 추가함.
+    // 'compileOnly'를 사용하면, 이 라이브러리는 컴파일 시에만 사용되고 최종 JAR 파일에는 포함되지 않음.
+    // (실제 실행은 이 라이브러리를 사용하는 최종 애플리케이션이 담당하므로 이것이 올바른 방법.)
+    compileOnly 'jakarta.servlet:jakarta.servlet-api'
+    // --- Lombok ---
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 
-	// --- Test ---
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // --- Test ---
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-	// Testcontainers와 JUnit 5 연동 라이브러리
-	testImplementation 'org.testcontainers:junit-jupiter'
-	// Testcontainers를 통해 Redis를 띄우기 위한 모듈
-	testImplementation 'org.testcontainers:redis'
-
-	testCompileOnly 'org.projectlombok:lombok'
-	testAnnotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 dependencyManagement {
-	imports {
-		// Spring Boot3.5.4가 권장하는 버전들을 자동으로 관리
-		mavenBom("org.springframework.boot:spring-boot-dependencies:3.5.4")
-		// Resilience4j가 관리하는 라이브러리 버전 목록
-		mavenBom "io.github.resilience4j:resilience4j-bom:2.2.0" // Resilience4j의 최신 안정화 버전
-		// Testcontainers가 관리하는 라이브러리 버전 목록
-		mavenBom "org.testcontainers:testcontainers-bom:1.19.8" // Testcontainers의 최신 안정화 버전
-	}
+    imports {
+        // Spring Boot3.5.4가 권장하는 버전들을 자동으로 관리
+        mavenBom 'org.springframework.boot:spring-boot-dependencies:3.5.4'
+        // Resilience4j가 관리하는 라이브러리 버전 목록
+        mavenBom 'io.github.resilience4j:resilience4j-bom:2.2.0' // Resilience4j의 최신 안정화 버전
+    }
 }
 
 // publishing 설정: GitHubPackages로 배포하기 위한 핵심
-publishing{
-	publications {
-		maven(MavenPublication) {
-			from components.java
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
 
-			// github packages 사용을 위한 명확히 표기
-			groupId = 'com.portfolio.common'
-			artifactId = 'system'	// 원하는 artifactId 명확히 지정
-			version = '0.0.1-SNAPSHOT'
+            // github packages 사용을 위한 명확히 표기
+            groupId = 'com.portfolio.common'
+            artifactId = 'system-common'    // 원하는 artifactId 명확히 지정
+            version = '0.0.1-SNAPSHOT'
 
-			// version mapping
-			versionMapping {
-				// 'api'로 선언된 의존성에 대한 버전 매핑
-				usage('java-api'){
-					fromResolutionResult()
-				}
-				// 'implementation' 선언된 의존성에 대한 버전 매핑
-				usage('java-runtime'){
-					fromResolutionResult()
-				}
-			}
-		}
-	}
-	repositories{
-		maven{
-			name = "GitHubPackages"
-			// System.getenv = .github/workflows/publish.yml의 env 설정
-			def repoPath = System.getenv("GPR_SYS_PATH") ?: project.findProperty("gpr.sys.path")
-			// URL: https://maven.pkg.github.com/{조직명}/{저장소}
-			url = "https://maven.pkg.github.com/${repoPath}"
-			credentials{
-				// CI환경(github actions)과 로컬PC 모두 지원하는 방식
-				username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")
-				password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token")
-			}
-		}
-	}
+            // version mapping
+            versionMapping {
+                // 'api'로 선언된 의존성에 대한 버전 매핑
+                usage('java-api') {
+                    fromResolutionResult()
+                }
+                // 'implementation' 선언된 의존성에 대한 버전 매핑
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            // System.getenv = .github/workflows/publish.yml의 env 설정
+            def repoPath = System.getenv("GPR_SYS_PATH") ?: project.findProperty("gpr.sys.path")
+            // URL: https://maven.pkg.github.com/{조직명}/{저장소}
+            url = "https://maven.pkg.github.com/${repoPath}"
+            credentials {
+                // CI환경(github actions)과 로컬PC 모두 지원하는 방식
+                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user")
+                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.token")
+            }
+        }
+    }
 }
 
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }
