@@ -12,7 +12,10 @@ java {
         languageVersion = JavaLanguageVersion.of(21)
     }
 }
-
+// commons-logging 전역 제외
+configurations.all {
+    exclude group: 'commons-logging', module: 'commons-logging'
+}
 configurations {
     compileOnly {
         extendsFrom annotationProcessor
@@ -67,7 +70,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     // --- Test ---
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     testCompileOnly 'org.projectlombok:lombok'
