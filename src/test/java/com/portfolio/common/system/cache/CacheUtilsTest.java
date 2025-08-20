@@ -10,12 +10,13 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = {
         RedisConfig.class
 //        , TraceIdFilter.class
         , CacheUtils.class
+        , DynamicCacheResolver.class
 })
 @TestPropertySource(properties = {
         "spring.redis.host=localhost",
@@ -55,6 +56,60 @@ public class CacheUtilsTest {
 
         // then
         assertEquals(value, result);
+
+    }
+
+    @Test
+    void testDelete(){
+        // given
+        String key = "testKey";
+        String value = "testValue";
+        cacheUtils.set(key, value, 60L);
+
+        // when
+        log.debug("cache : {}", cacheUtils.get(key));
+        boolean deleted = cacheUtils.delete(key);
+
+        // then
+        assertTrue(deleted);
+        assertNull(cacheUtils.get(key));
+    }
+
+    @Test
+    void testHasKey(){
+        // given
+        String key = "testKey";
+        String value = "testValue";
+        cacheUtils.set(key, value, 60L);
+        log.debug("cache : {}", cacheUtils.get(key));
+
+        // when
+        boolean exists = cacheUtils.hasKey(key);
+
+        // then
+        assertTrue(exists);
+    }
+
+    @Test
+    void testCacheable(){
+        // given
+        String cacheName = "users";
+        String key = "123";
+        String expected = "users-Data-123";
+
+        // when
+        String result1 = cacheUtils.getKeyByCacheName(cacheName, key);
+        String result2 = cacheUtils.getKeyByCacheName(cacheName, key);    // 캐시로 가져옴
+        log.debug("result1: {}, result2: {}", result1, result2);
+
+        // then
+        assertEquals(expected, result1);
+        assertEquals(expected, result2);
+        Object cachedValue = redisTemplate.opsForValue().get(cacheName + "::" + key);
+//        Object cachedValue2 = redisTemplate.opsForValue().get("users::123");
+        log.debug("cacheValue: {}", cachedValue);
+//        log.debug("cacheValue2: {}", cachedValue2);
+        assertNotNull(cachedValue);
 
     }
 }

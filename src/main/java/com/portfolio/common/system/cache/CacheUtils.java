@@ -72,8 +72,8 @@ public class CacheUtils {
      * @param key       조회한 key
      * @return 캐시된 데이터 또는 새로 생성된 데이터
      */
-    @Cacheable(value = "#cacheName", key = "#key")
-    public String getUserById(String cacheName, String key) {
+    @Cacheable(cacheResolver = "dynamicCacheResolver", key = "#key")
+    public String getKeyByCacheName(String cacheName, String key) {
         // 실제로는 DB 조회 등 무거운 작업 수행
         // 여기서는 예시로 ID 기반 문자열 반환
         return cacheName + "-Data-" + key;

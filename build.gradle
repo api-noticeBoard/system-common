@@ -126,6 +126,10 @@ publishing {
     }
 }
 
+// Java 컴파일러에 -parameters 플래그 추가
+tasks.named('compileJava') {
+    options.compilerArgs << '-parameters'
+}
 
 tasks.named('test') {
     useJUnitPlatform()
