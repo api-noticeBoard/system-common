@@ -94,7 +94,7 @@ publishing {
 
             // github packages 사용을 위한 명확히 표기
             groupId = 'com.portfolio.common'
-            artifactId = 'system-common'    // 원하는 artifactId 명확히 지정
+            artifactId = 'system'    // 원하는 artifactId 명확히 지정
             version = '0.0.1-SNAPSHOT'
 
             // version mapping
