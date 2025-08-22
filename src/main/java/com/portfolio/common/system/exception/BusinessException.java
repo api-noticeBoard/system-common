@@ -28,6 +28,16 @@ public class BusinessException extends RuntimeException{
     private final ErrorCode errorCode;
 
     /**
+     * ErrorCode의 기본 메시지에 동적 인자를 적용하여 예외 생성.
+     * @param errorCode 에러 코드 (예: INVALID_INPUT_VALUE)
+     * @param args 메시지 템플릿에 삽입할 인자 (예: id 값)
+     */
+    public BusinessException(ErrorCode errorCode, Object... args) {
+        super(errorCode.getMessage(args)); // 동적 메시지 생성
+        this.errorCode = errorCode;
+    }
+
+    /**
      * ErrorCode에 정의된 기본 메시지 외에, 동적인 데이터를 포함하는
      * 커스텀 메시지를 함께 전달하고 싶을 때 사용하는 생성자.
      *
