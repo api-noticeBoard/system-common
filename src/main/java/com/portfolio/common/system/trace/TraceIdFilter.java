@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -19,6 +20,7 @@ import java.util.UUID;
  * 예를 들어, API Gateway -> Service A -> Service B 로 요청이 전달될 때, 동일한 TraceID를 전파하면
  * 분산 로깅 시스템(ELK, Datadog 등)에서 특정 요청의 전체 처리 과정을 한눈에 볼 수 있음.
  */
+@Component
 public class TraceIdFilter extends OncePerRequestFilter {
 
     // 클라이언트와 서버 간에 TraceID를 주고받을 때 사용할 HTTP 헤더의 이름.

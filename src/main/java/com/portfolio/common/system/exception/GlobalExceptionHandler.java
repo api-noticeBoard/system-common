@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * 3. 예외 발생 시, 적절한 로그를 남겨 운영 중 문제 추적을 용이.
  */
 @Slf4j                  // 로깅을 위한 Lombok 어노테이션. (log.error(), log.warn() 등 사용 가능)
-@RestControllerAdvice(basePackages = "com.portfolio.common")   // @ControllerAdvice + @ResponseBody. 예외 처리 결과를 JSON 형태로 반환.
+@RestControllerAdvice   // @ControllerAdvice + @ResponseBody. 예외 처리 결과를 JSON 형태로 반환.
 public class GlobalExceptionHandler {
 
     /**
