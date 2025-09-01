@@ -35,7 +35,7 @@ public enum ErrorCode {
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "존재하지 않는 게시글입니다."),
     EMAIL_DUPLICATION(HttpStatus.CONFLICT, "P002", "이미 사용중인 이메일 입니다."),
     CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P003", "존재하지 않는 카테고리입니다."),
-    CATEGORY_NAME_DUPLICATIED(HttpStatus.CONFLICT, "P004", "이미 존재하는 카테고리입니다."),
+    CATEGORY_DUPLICATIED(HttpStatus.CONFLICT, "P004", "이미 존재하는 카테고리입니다."),
     PARENT_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P005", "존재하지 않는 부모 카테고리입니다."),
     CHILD_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P006", "존재하지 않는 자식 카테고리입니다."),
     /** --- 예시 --- */
