@@ -77,7 +77,18 @@ public class PagingInterceptor implements Interceptor {
 
     // 원본 SQL을 카운트 쿼리로 변환하는 헬퍼 메서드 (간단한 버전)
     private String generateCountSql(String originalSql) {
-        return "SELECT count(*) FROM (" + originalSql + ") AS total";
+//        return "SELECT count(*) FROM (" + originalSql + ") AS total";
+        // 1. 원본 SQL에서 ORDER BY 절을 제거합니다.
+        String countSql = originalSql.replaceAll("(?i)order\\s+by[\\s\\S]+", "");
+
+        // 2. 원본 SQL의 SELECT ... FROM 부분을 SELECT count(*) FROM 으로 교체합니다.
+        //    JOIN으로 인해 카운트가 부풀려지는 것을 막기 위해, 기준 테이블의 PK를 카운트하는 것이 더 정확합니다.
+        //    (예: "SELECT count(p.id) FROM post p LEFT JOIN ...")
+        //    여기서는 간단하게 FROM 앞부분을 잘라내는 방식을 사용합니다.
+        int fromIndex = countSql.toLowerCase().indexOf("from");
+        countSql = "SELECT count(*) " + countSql.substring(fromIndex);
+
+        return countSql;
     }
 
     // 원본 SQL을 페이징 쿼리로 변환하는 헬퍼 메서드 (MySQL/H2 기준)
