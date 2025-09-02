@@ -37,12 +37,12 @@ dependencies {
     // Spring Cache Abstraction: @Cacheable, @CacheEvict 등의 어노테이션을 사용하기 위해 필요합니다.
     api 'org.springframework.boot:spring-boot-starter-cache'
 
-    // 추가: Lettuce 클라이언트 명시적 추가. RedisConnectionFactory 생성 보장.
-//		implementation 'io.lettuce:lettuce-core:6.4.0.RELEASE'  // Spring Boot 3.5.4와 호환 버전
     // --- 톰캣을 제외한 웹 관련 기능 ---
     implementation("org.springframework.boot:spring-boot-starter-web") {
         exclude(group: "org.springframework.boot", module: "spring-boot-starter-tomcat")
     }
+    // --- MyBatis ---
+    implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
     // --- Utility ---
     implementation 'org.apache.commons:commons-lang3:3.14.0'
     // --- Excel 처리 ---
