@@ -56,7 +56,7 @@ public class PageDto {
         }
 
         // MyBatis 페이징 결과를 위한 생성자
-        public Response(List<T> content, PageDto.Request pageRequest) {
+        public Response(List<T> content, Request pageRequest, Long totalCount) {
             this.content = content;
             this.pageNumber = pageRequest.getPage();
             this.pageSize = pageRequest.getSize();
