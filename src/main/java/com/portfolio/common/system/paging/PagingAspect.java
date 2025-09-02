@@ -28,6 +28,7 @@ public class PagingAspect {
                 .orElse(null);
 
         if (pageRequest == null) {
+            log.warn("@Paging 어노테이션이 있지만 PageDto.Request 파라미터가 없어 페이징을 적용할 수 없습니다. Method: {}", joinPoint.getSignature().toShortString());
             return joinPoint.proceed();
         }
 
@@ -35,8 +36,18 @@ public class PagingAspect {
             // [Before] PagingContext 설정
             PagingContext.setPageRequest(pageRequest);
 
-            // [Execution] 원본 메서드를 그대로 실행하고 결과를 반환
-            return joinPoint.proceed();
+            // [Execution] 원본 서비스 메서드 실행 (이 메서드는 List를 반환해야 함)
+            Object result = joinPoint.proceed();
+
+            // [After] 원본 결과를 PageDto.Response로 포장하여 최종 반환
+            if (result instanceof List) {
+                List<?> content = (List<?>) result;
+                Long totalCount = PagingContext.getTotalCount();
+                return new PageDto.Response<>(content, pageRequest, totalCount);
+            } else {
+                log.warn("@Paging 어노테이션이 붙은 메서드의 반환 타입이 List가 아닙니다. Method: {}", joinPoint.getSignature().toShortString());
+                return result;
+            }
 
         } finally {
             // [Finally] PagingContext 해제
