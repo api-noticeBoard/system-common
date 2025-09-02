@@ -64,7 +64,9 @@ dependencies {
     // starter-tomcat을 제외했으므로, API만 따로 추가함.
     // 'compileOnly'를 사용하면, 이 라이브러리는 컴파일 시에만 사용되고 최종 JAR 파일에는 포함되지 않음.
     // (실제 실행은 이 라이브러리를 사용하는 최종 애플리케이션이 담당하므로 이것이 올바른 방법.)
+    // --- swagger ---
     compileOnly 'jakarta.servlet:jakarta.servlet-api'
+    compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
     // --- Lombok ---
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
