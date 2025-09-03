@@ -43,7 +43,7 @@ public class PagingAspect {
             if (result instanceof List) {
                 List<?> content = (List<?>) result;
                 Long totalCount = PagingContext.getTotalCount();
-                return new PageDto.Response<>(content, pageRequest, totalCount);
+                return new PageDto.Response<>(content, pageRequest);
             } else {
                 log.warn("@Paging 어노테이션이 붙은 메서드의 반환 타입이 List가 아닙니다. Method: {}", joinPoint.getSignature().toShortString());
                 return result;
