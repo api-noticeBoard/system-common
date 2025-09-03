@@ -68,11 +68,11 @@ public class PageDto {
          * @param content 현재 페이지의 데이터 목록
          * @param pageRequest 인터셉터가 totalCount를 채워준 페이징 요청 정보
          */
-        public Response(List<T> content, Request pageRequest) {
+        public Response(List<T> content, Request pageRequest, Long totalCount) {
             this.content = content;
             this.pageNumber = pageRequest.getPage();
             this.pageSize = pageRequest.getSize();
-            this.totalElements = pageRequest.getTotalCount(); // 인터셉터가 설정해준 값을 사용
+            this.totalElements = totalCount; // 인터셉터가 설정해준 값을 사용
 
             if (this.pageSize > 0) {
                 this.totalPages = (int) Math.ceil((double) this.totalElements / this.pageSize);
