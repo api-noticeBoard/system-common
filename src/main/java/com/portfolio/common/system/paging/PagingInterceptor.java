@@ -23,8 +23,10 @@ public class PagingInterceptor implements Interceptor {
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
+
+        Object parameterObject = invocation.getArgs()[1];
         // 파라미터에서 직접 찾는 대신 PagingContext에서 페이징 정보를 가져옵니다.
-        PageDto.Request pageRequest = PagingContext.getPageRequest();
+        PageDto.Request pageRequest = findPageRequest(parameterObject);
 
         // 페이징 객체가 없으면 원래 로직을 그대로 실행합니다.
         if (pageRequest == null) {
@@ -33,9 +35,7 @@ public class PagingInterceptor implements Interceptor {
         log.debug("MyBatis Paging Interceptor started.");
 
         // --- 1. 원본 쿼리 정보 가져오기 ---
-        Object[] args = invocation.getArgs();
         MappedStatement ms = (MappedStatement) invocation.getArgs()[0];
-        Object parameterObject = invocation.getArgs()[1];
         Executor executor = (Executor) invocation.getTarget();
         BoundSql boundSql = ms.getBoundSql(parameterObject);
 
@@ -57,9 +57,8 @@ public class PagingInterceptor implements Interceptor {
         String pagingSql = generatePagingSql(boundSql.getSql(), pageRequest);
         BoundSql pagingBoundSql = new BoundSql(ms.getConfiguration(), pagingSql, boundSql.getParameterMappings(), parameterObject);
 
-//        CacheKey cacheKey = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, pagingBoundSql);
-        return executor.query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], null, pagingBoundSql);
-//        return ((Executor) invocation.getTarget()).query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], null, pagingBoundSql);
+        CacheKey cacheKey = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, pagingBoundSql);
+        return executor.query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], cacheKey, pagingBoundSql);
     }
 
     private Long executeCountQuery(Executor executor, MappedStatement ms, Object parameter, BoundSql boundSql) throws Exception {
@@ -111,8 +110,6 @@ public class PagingInterceptor implements Interceptor {
 
     private String generateCountSql(String originalSql) {
         String countSql = originalSql.replaceAll("(?i)order\\s+by[\\s\\S]+", "");
-//        int fromIndex = countSql.toLowerCase().indexOf("from");
-//        return "SELECT count(*) " + countSql.substring(fromIndex);
         return "SELECT COUNT(*) FROM (" + countSql + ") AS count_table";
     }
 
