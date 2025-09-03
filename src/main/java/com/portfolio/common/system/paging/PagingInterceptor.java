@@ -1,6 +1,7 @@
 package com.portfolio.common.system.paging;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ibatis.cache.CacheKey;
 import org.apache.ibatis.executor.Executor;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
@@ -47,25 +48,41 @@ public class PagingInterceptor implements Interceptor {
         }
 
         // 3. 페이징 쿼리를 생성하고 실행
-        String originalSql = boundSql.getSql();
-        String pagingSql = generatePagingSql(originalSql, pageRequest);
+//        String originalSql = boundSql.getSql();
+        String pagingSql = generatePagingSql(boundSql.getSql(), pageRequest);
         BoundSql pagingBoundSql = new BoundSql(ms.getConfiguration(), pagingSql, boundSql.getParameterMappings(), parameterObject);
 
-        return executor.query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], null, pagingBoundSql);
+        CacheKey cacheKey = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, pagingBoundSql);
+        return executor.query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], cacheKey, pagingBoundSql);
     }
 
     private Long executeCountQuery(Executor executor, MappedStatement ms, Object parameter, BoundSql boundSql) throws Exception {
         String countSql = generateCountSql(boundSql.getSql());
+        // ✨ [핵심 수정] count 쿼리를 위한 BoundSql을 원본과 동일한 파라미터로 다시 생성합니다.
+        // 이렇게 하면 MyBatis가 동적 쿼리(<if>)를 평가할 때 필요한 파라미터(keyword)를 정확히 찾을 수 있습니다.
         BoundSql countBoundSql = new BoundSql(ms.getConfiguration(), countSql, boundSql.getParameterMappings(), parameter);
 
         MappedStatement countMs = new MappedStatement.Builder(ms.getConfiguration(), ms.getId() + "_count", ms.getSqlSource(), ms.getSqlCommandType())
                 .resultMaps(List.of(new ResultMap.Builder(ms.getConfiguration(), "countResult", Long.class, List.of()).build()))
                 .build();
 
-        List<Object> countResult = executor.query(countMs, parameter, RowBounds.DEFAULT, null, null, countBoundSql);
+        // ✨ 생성된 countBoundSql을 사용하여 쿼리를 실행합니다.
+        CacheKey countCacheKey = executor.createCacheKey(countMs, parameter, RowBounds.DEFAULT, countBoundSql);
+        List<Object> countResult = executor.query(countMs, parameter, RowBounds.DEFAULT, null, countCacheKey, countBoundSql);
         return (Long) countResult.get(0);
     }
 
+    /**
+     * MyBatis 매퍼 메서드로 전달된 파라미터 객체(parameterObject) 안에서
+     * 우리가 페이징 기준으로 삼기로 약속한 `PageDto.Request` 타입의 객체를 찾아내는 헬퍼 메서드입니다.
+     *
+     * MyBatis는 매퍼 메서드의 파라미터 개수에 따라 전달하는 객체의 형태가 달라지기 때문에,
+     * 여러 경우의 수를 모두 처리해야 합니다.
+     *
+     * @param parameterObject MyBatis가 매퍼 메서드에 전달한 파라미터 객체.
+     *                        (타입은 단일 객체일 수도, Map일 수도 있습니다.)
+     * @return 파라미터 안에서 발견된 `PageDto.Request` 객체. 찾지 못하면 null을 반환합니다.
+     */
     private PageDto.Request findPageRequest(Object parameterObject) {
         if (parameterObject instanceof PageDto.Request) {
             return (PageDto.Request) parameterObject;
@@ -79,8 +96,9 @@ public class PagingInterceptor implements Interceptor {
 
     private String generateCountSql(String originalSql) {
         String countSql = originalSql.replaceAll("(?i)order\\s+by[\\s\\S]+", "");
-        int fromIndex = countSql.toLowerCase().indexOf("from");
-        return "SELECT count(*) " + countSql.substring(fromIndex);
+//        int fromIndex = countSql.toLowerCase().indexOf("from");
+//        return "SELECT count(*) " + countSql.substring(fromIndex);
+        return "SELECT COUNT(*) FROM (" + countSql + ") AS count_table";
     }
 
     private String generatePagingSql(String originalSql, PageDto.Request pageRequest) {
