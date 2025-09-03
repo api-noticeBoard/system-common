@@ -23,23 +23,28 @@ public class PagingInterceptor implements Interceptor {
 
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
-        // [수정] 파라미터에서 직접 찾는 대신 PagingContext에서 페이징 정보를 가져옵니다.
+        // 파라미터에서 직접 찾는 대신 PagingContext에서 페이징 정보를 가져옵니다.
         PageDto.Request pageRequest = PagingContext.getPageRequest();
 
         // 페이징 객체가 없으면 원래 로직을 그대로 실행합니다.
         if (pageRequest == null) {
             return invocation.proceed();
         }
+        log.debug("MyBatis Paging Interceptor started.");
 
+        // --- 1. 원본 쿼리 정보 가져오기 ---
+        Object[] args = invocation.getArgs();
         MappedStatement ms = (MappedStatement) invocation.getArgs()[0];
         Object parameterObject = invocation.getArgs()[1];
         Executor executor = (Executor) invocation.getTarget();
         BoundSql boundSql = ms.getBoundSql(parameterObject);
 
-        // 1. 전체 카운트 쿼리를 실행합니다.
+        // 2. 전체 카운트 쿼리를 실행합니다.
         Long totalCount = executeCountQuery(executor, ms, parameterObject, boundSql);
 
-        // 2. ✨ [핵심] 파라미터로 넘어온 pageRequest 객체에 totalCount를 직접 설정합니다.
+        log.info(">>>> Paging Interceptor: Total Count = {}", totalCount);
+
+        // ✨ [핵심] 파라미터로 넘어온 pageRequest 객체에 totalCount를 직접 설정합니다.
         pageRequest.setTotalCount(totalCount);
 
         // 전체 카운트가 0이면, 목록 조회는 의미 없으므로 빈 리스트를 반환합니다.
@@ -48,16 +53,21 @@ public class PagingInterceptor implements Interceptor {
         }
 
         // 3. 페이징 쿼리를 생성하고 실행
-//        String originalSql = boundSql.getSql();
+        String originalSql = boundSql.getSql();
         String pagingSql = generatePagingSql(boundSql.getSql(), pageRequest);
         BoundSql pagingBoundSql = new BoundSql(ms.getConfiguration(), pagingSql, boundSql.getParameterMappings(), parameterObject);
 
-        CacheKey cacheKey = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, pagingBoundSql);
-        return executor.query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], cacheKey, pagingBoundSql);
+//        CacheKey cacheKey = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, pagingBoundSql);
+        return executor.query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], null, pagingBoundSql);
+//        return ((Executor) invocation.getTarget()).query(ms, parameterObject, RowBounds.DEFAULT, (ResultHandler) invocation.getArgs()[3], null, pagingBoundSql);
     }
 
     private Long executeCountQuery(Executor executor, MappedStatement ms, Object parameter, BoundSql boundSql) throws Exception {
         String countSql = generateCountSql(boundSql.getSql());
+
+        // ✨ [디버깅 로그] 생성된 COUNT 쿼리 자체를 로그로 출력합니다.
+        log.debug(">>>> Paging Interceptor: Generated Count SQL = {}", countSql);
+
         // ✨ [핵심 수정] count 쿼리를 위한 BoundSql을 원본과 동일한 파라미터로 다시 생성합니다.
         // 이렇게 하면 MyBatis가 동적 쿼리(<if>)를 평가할 때 필요한 파라미터(keyword)를 정확히 찾을 수 있습니다.
         BoundSql countBoundSql = new BoundSql(ms.getConfiguration(), countSql, boundSql.getParameterMappings(), parameter);
@@ -69,6 +79,11 @@ public class PagingInterceptor implements Interceptor {
         // ✨ 생성된 countBoundSql을 사용하여 쿼리를 실행합니다.
         CacheKey countCacheKey = executor.createCacheKey(countMs, parameter, RowBounds.DEFAULT, countBoundSql);
         List<Object> countResult = executor.query(countMs, parameter, RowBounds.DEFAULT, null, countCacheKey, countBoundSql);
+
+        // 결과가 비어있으면 0 반환
+        if (countResult == null || countResult.isEmpty()){
+            return 0L;
+        }
         return (Long) countResult.get(0);
     }
 

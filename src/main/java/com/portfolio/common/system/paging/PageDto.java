@@ -18,8 +18,8 @@ public class PageDto {
     public static class Request {
         @Schema(description = "페이지 번호 (1부터 시작)", example = "1", defaultValue = "1") private int page = 1;
         @Schema(description = "페이지 당 데이터 수", example = "10", defaultValue = "10") private int size = 10;
-        @Schema(description = "정렬할 필드 이름", example = "createdAt", hidden = true) private String sortBy;
-        @Schema(description = "정렬 방향 (ASC or DESC)", example = "DESC", defaultValue = "DESC", hidden = true) private Sort.Direction sortDirection = Sort.Direction.DESC;
+        @Schema(description = "정렬할 필드 이름", example = "createdAt") private String sortBy;
+        @Schema(description = "정렬 방향 (ASC or DESC)", example = "DESC", defaultValue = "DESC") private Sort.Direction sortDirection = Sort.Direction.DESC;
 
         /**
          * ✨ [핵심] 인터셉터가 계산한 전체 데이터 개수를 저장하기 위한 필드.
