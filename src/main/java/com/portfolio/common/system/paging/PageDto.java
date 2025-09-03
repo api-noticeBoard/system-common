@@ -7,6 +7,7 @@ import lombok.Setter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 
@@ -15,21 +16,25 @@ public class PageDto {
     @Getter
     @Setter
     public static class Request {
-        @Schema(description = "페이지 번호 (1부터 시작)", example = "1", defaultValue = "1")
-        private int page = 1;
-        @Schema(description = "페이지 당 데이터 수", example = "10", defaultValue = "10")
-        private int size = 10;
+        @Schema(description = "페이지 번호 (1부터 시작)", example = "1", defaultValue = "1") private int page = 1;
+        @Schema(description = "페이지 당 데이터 수", example = "10", defaultValue = "10") private int size = 10;
+        @Schema(description = "정렬할 필드 이름", example = "createdAt") private String sortBy;
+        @Schema(description = "정렬 방향 (ASC or DESC)", example = "DESC", defaultValue = "DESC") private Sort.Direction sortDirection = Sort.Direction.DESC;
 
         /**
-         * 인터셉터가 계산한 전체 데이터 개수를 저장하기 위한 필드.
-         * 서버 내부에서만 사용되며, 클라이언트가 보내는 값은 무시됩니다.
+         * ✨ [핵심] 인터셉터가 계산한 전체 데이터 개수를 저장하기 위한 필드.
+         * 이 필드는 서버 내부에서만 채워집니다.
          */
         @Schema(hidden = true) // 이 필드는 클라이언트가 보내는 값이 아니므로 Swagger UI에서 숨깁니다.
         private long totalCount;
 
         // JPA용 변환 메서드
         public Pageable toPageable() {
-            return PageRequest.of(page - 1, size);
+            if (sortBy != null && !sortBy.isBlank()) {
+                return PageRequest.of(page - 1, size, sortDirection, sortBy);
+            } else {
+                return PageRequest.of(page - 1, size);
+            }
         }
 
         // MyBatis용 OFFSET 계산 메서드
