@@ -12,6 +12,7 @@ import org.apache.ibatis.plugin.Invocation;
 import org.apache.ibatis.plugin.Signature;
 import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -108,12 +109,34 @@ public class PagingInterceptor implements Interceptor {
         return null;
     }
 
+    // totalCount를 계산하는 퀴리조작 메서드
     private String generateCountSql(String originalSql) {
         String countSql = originalSql.replaceAll("(?i)order\\s+by[\\s\\S]+", "");
         return "SELECT COUNT(*) FROM (" + countSql + ") AS count_table";
     }
 
+    // 페이징 만드는 쿼리 조작 메서드
     private String generatePagingSql(String originalSql, PageDto.Request pageRequest) {
-        return originalSql + " LIMIT " + pageRequest.getSize() + " OFFSET " + pageRequest.getOffset();
+
+        StringBuilder sqlBuilder = new StringBuilder(originalSql);
+
+        // 현재 정렬관련 변수가 채워졌는지 확인
+        if (StringUtils.hasText(pageRequest.getSortBy())) {
+            // 기존 쿼리에 order by 있는지 확인
+            if (originalSql.toLowerCase().contains("order by")) {
+                log.warn("Original SQL already contains an ORDER BY clause. The sort parameter from PageRequest will be ignored.");
+            }else{
+                sqlBuilder.append("ORDER BY")
+                        .append(pageRequest.getSortBy())                // 정렬 컬럼
+                        .append(" ")
+                        .append(pageRequest.getSortDirection().name()); // 정렬 방향
+            }
+        }
+
+        // --- 페이징(Limit/Offset) 처리 로직 ---
+        sqlBuilder.append(" LIMIT ").append(pageRequest.getSize());
+        sqlBuilder.append(" OFFSET ").append(pageRequest.getOffset());
+
+        return sqlBuilder.toString();
     }
 }

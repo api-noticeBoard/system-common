@@ -29,6 +29,7 @@ public class PageDto {
         private long totalCount;
 
         // JPA용 변환 메서드
+        @Schema(hidden = true)
         public Pageable toPageable() {
             if (sortBy != null && !sortBy.isBlank()) {
                 return PageRequest.of(page - 1, size, sortDirection, sortBy);
@@ -38,6 +39,7 @@ public class PageDto {
         }
 
         // MyBatis용 OFFSET 계산 메서드
+        @Schema(hidden = true)
         public long getOffset() {
             return (long) (page - 1) * size;
         }
