@@ -126,7 +126,7 @@ public class PagingInterceptor implements Interceptor {
             if (originalSql.toLowerCase().contains("order by")) {
                 log.warn("Original SQL already contains an ORDER BY clause. The sort parameter from PageRequest will be ignored.");
             }else{
-                sqlBuilder.append("ORDER BY")
+                sqlBuilder.append(" ORDER BY ")
                         .append(pageRequest.getSortBy())                // 정렬 컬럼
                         .append(" ")
                         .append(pageRequest.getSortDirection().name()); // 정렬 방향
