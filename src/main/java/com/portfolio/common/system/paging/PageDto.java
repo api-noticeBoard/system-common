@@ -18,7 +18,7 @@ public class PageDto {
     public static class Request {
         @Schema(description = "페이지 번호 (1부터 시작)", example = "1", defaultValue = "1") private int page = 1;
         @Schema(description = "페이지 당 데이터 수", example = "10", defaultValue = "10") private int size = 10;
-        @Schema(description = "정렬할 필드 이름", example = "createdAt") private String sortBy;
+        @Schema(description = "정렬할 필드 이름", example = "created_at") private String sortBy;
         @Schema(description = "정렬 방향 (ASC or DESC)", example = "DESC", defaultValue = "DESC") private Sort.Direction sortDirection = Sort.Direction.DESC;
 
         /**
