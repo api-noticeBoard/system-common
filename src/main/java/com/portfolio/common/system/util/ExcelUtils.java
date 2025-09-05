@@ -19,16 +19,16 @@ public class ExcelUtils {
     /**
      * Java 객체 리스트를 엑셀 파일로 변환하여 HttpServletResponse에 바로 다운로드합니다.
      * @param data 엑셀로 만들 데이터 목록 (e.g., List<PostDto.Response>)
-     * @param headers 엑셀의 헤더로 사용할 이름 목록 (e.g., ["ID", "제목", "작성자"])
-     * @param fields DTO 객체에서 헤더 순서에 맞게 값을 추출할 필드 이름 목록 (e.g., ["id", "title", "createdByName"])
+     * @param dtoClass headers, fields를 합침
+     * // @param headers 엑셀의 헤더로 사용할 이름 목록 (e.g., ["ID", "제목", "작성자"])
+     * // @param fields DTO 객체에서 헤더 순서에 맞게 값을 추출할 필드 이름 목록 (e.g., ["id", "title", "createdByName"])
      * @param fileName 다운로드될 파일 이름
      * @param response HttpServletResponse 객체
      * @param <T> 데이터 객체의 타입
      */
     public static <T> void downloadExcel(
             List<T> data
-            , List<String> headers
-            , List<String> fields
+            , Class<T> dtoClass
             , String fileName
             , HttpServletResponse response) throws IOException {
 
@@ -43,7 +43,7 @@ public class ExcelUtils {
         excelFields.sort(Comparator.comparingInt(f -> f.getAnnotation(ExcelColumn.class).order()));
 
         // 정렬된 필드에서 헤더 이름과 필드 이름 목록 추출
-        headers = excelFields.stream()
+        List<String>headers = excelFields.stream()
                 .map(f -> f.getAnnotation(ExcelColumn.class).headerName())
                 .toList();
 
