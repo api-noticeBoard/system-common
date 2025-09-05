@@ -18,13 +18,25 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
+// @Intercepts: 이 클래스가 어떤 메서드를 가로챌지(intercept) 정의합니다.
+// @Signature: 가로챌 메서드의 시그니처(타입, 이름, 파라미터)를 명시합니다.
+//  - type=Executor.class: Executor의 메서드를 감시하겠습니다.
+//  - method="query": 그 중에서도 'query'(조회) 작업을 하는 메서드만 가로채겠습니다.
+//  - args={...}: 'query' 메서드의 다양한 파라미터 형태들을 모두 감시 대상에 포함합니다.
 @Intercepts({@Signature(type = Executor.class, method = "query"
         , args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class})})
 public class PagingInterceptor implements Interceptor {
-
+    /**
+     * 실제로 모든 요청을 가로채서 로직을 수행하는 핵심 메서드입니다.
+     * @param invocation 가로챈 원본 메서드(Executor.query)의 모든 정보(메서드 자체, 파라미터 등)를 담고 있는 객체.
+     * @return 조작된 쿼리의 실행 결과 또는 원본 쿼리의 실행 결과.
+     * @throws Throwable
+     */
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
 
+        // invocation가 이 메서드로 들어옵니다.
+        // invocation.getArgs()[1]은 'query' 메서드의 두 번째 파라미터, 즉 파라미터 객체(parameterObject)입니다.
         Object parameterObject = invocation.getArgs()[1];
         // 파라미터에서 직접 찾는 대신 PagingContext에서 페이징 정보를 가져옵니다.
         PageDto.Request pageRequest = findPageRequest(parameterObject);
@@ -36,16 +48,16 @@ public class PagingInterceptor implements Interceptor {
         log.debug("MyBatis Paging Interceptor started.");
 
         // --- 1. 원본 쿼리 정보 가져오기 ---
-        MappedStatement ms = (MappedStatement) invocation.getArgs()[0];
-        Executor executor = (Executor) invocation.getTarget();
-        BoundSql boundSql = ms.getBoundSql(parameterObject);
+        MappedStatement ms = (MappedStatement) invocation.getArgs()[0];  // 실행할 쿼리 정보 (SELECT, INSERT 등)
+        Executor executor = (Executor) invocation.getTarget();           // 실제 쿼리를 실행할 주체 (택배 기사)
+        BoundSql boundSql = ms.getBoundSql(parameterObject);             // 파라미터가 적용된 SQL과 정보
 
         // 2. 전체 카운트 쿼리를 실행합니다.
         Long totalCount = executeCountQuery(executor, ms, parameterObject, boundSql);
 
         log.info(">>>> Paging Interceptor: Total Count = {}", totalCount);
 
-        // ✨ [핵심] 파라미터로 넘어온 pageRequest 객체에 totalCount를 직접 설정합니다.
+        // ✨ [핵심] 파라미터로 넘어온 pageRequest 객체에 totalCount를 설정.
         pageRequest.setTotalCount(totalCount);
 
         // 전체 카운트가 0이면, 목록 조회는 의미 없으므로 빈 리스트를 반환합니다.
@@ -53,9 +65,10 @@ public class PagingInterceptor implements Interceptor {
             return List.of();
         }
 
-        // 3. 페이징 쿼리를 생성하고 실행
+        // 3. 페이징 쿼리를 생성하고 실행(원본 SQL을 가져와서 '페이징' 추가)
         String originalSql = boundSql.getSql();
-        String pagingSql = generatePagingSql(boundSql.getSql(), pageRequest);
+        String pagingSql = generatePagingSql(originalSql, pageRequest); // LIMIT, OFFSET 추가
+        // 변경된 쿼리로 작성
         BoundSql pagingBoundSql = new BoundSql(ms.getConfiguration(), pagingSql, boundSql.getParameterMappings(), parameterObject);
 
         CacheKey cacheKey = executor.createCacheKey(ms, parameterObject, RowBounds.DEFAULT, pagingBoundSql);
@@ -77,6 +90,8 @@ public class PagingInterceptor implements Interceptor {
                 .build();
 
         // ✨ 생성된 countBoundSql을 사용하여 쿼리를 실행합니다.
+        // 만약 원본 boundSql을 기준으로 만들어진 기존 캐시 키를 그대로 사용한다면,
+        // MyBatis는 1페이지를 조회하는 쿼리와 2페이지를 조회하는 쿼리를 같은 쿼리로 오인하여 반환
         CacheKey countCacheKey = executor.createCacheKey(countMs, parameter, RowBounds.DEFAULT, countBoundSql);
         List<Object> countResult = executor.query(countMs, parameter, RowBounds.DEFAULT, null, countCacheKey, countBoundSql);
 
@@ -115,7 +130,7 @@ public class PagingInterceptor implements Interceptor {
         return "SELECT COUNT(*) FROM (" + countSql + ") AS count_table";
     }
 
-    // 페이징 만드는 쿼리 조작 메서드
+    // 페이징 정렬 쿼리 조작 메서드
     private String generatePagingSql(String originalSql, PageDto.Request pageRequest) {
 
         StringBuilder sqlBuilder = new StringBuilder(originalSql);
