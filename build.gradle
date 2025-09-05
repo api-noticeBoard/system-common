@@ -66,7 +66,7 @@ dependencies {
     // (실제 실행은 이 라이브러리를 사용하는 최종 애플리케이션이 담당하므로 이것이 올바른 방법.)
     // --- swagger ---
     compileOnly 'jakarta.servlet:jakarta.servlet-api'
-    compileOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+    api 'io.swagger.core.v3:swagger-annotations-jakarta:2.2.20'
     // --- Lombok ---
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
