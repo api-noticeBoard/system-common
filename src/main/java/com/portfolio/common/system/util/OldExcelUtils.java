@@ -187,7 +187,7 @@ public final class OldExcelUtils {
                 // --- 3. 헤더 생성 및 스타일 적용 ---
                  headerRow = sheet.createRow(0);
                  for (int j = 0; j < headers.size(); j++) {
-                     Cell cell = headerRow.createCell(j);
+                     cell = headerRow.createCell(j);
                      cell.setCellValue(headers.get(j));
                      // 생성된 모든 헤더 셀에 위에서 만든 CellStyle 객체를 적용.
                      cell.setCellStyle(headerCellStyle);
@@ -196,8 +196,8 @@ public final class OldExcelUtils {
                 // --- 5. 열 너비 자동 조정 (선택 사항) ---
                 // 이 작업은 성능에 영향을 줄 수 있으므로, 데이터 양이 매우 많을 때는 주의해야 함.
                 // SXSSFWorkbook에서 autoSizeColumn은 제한적으로 동작.
-                 for (int i = 0; i < headers.size(); i++) {
-                  sheet.autoSizeColumn(i);
+                 for (int k = 0; k < headers.size(); k++) {
+                  sheet.autoSizeColumn(k);
                  }
             }
 
