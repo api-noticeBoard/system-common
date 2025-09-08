@@ -15,4 +15,6 @@ public @interface ExcelColumn {
     String headerName();
     // 엑셀 컬럼의 순서를 지정합니다. 낮은 숫자가 앞에 옴.
     int order() default Integer.MAX_VALUE;
+    // 업로드 시, 몇 번째 열의 데이터인지 지정 (0부터 시작)
+    int colIndex();
 }
