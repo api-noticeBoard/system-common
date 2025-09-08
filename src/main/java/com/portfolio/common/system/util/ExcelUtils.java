@@ -110,8 +110,11 @@ public class ExcelUtils {
             for (Field field : dtoClass.getDeclaredFields()) {
                 if (field.isAnnotationPresent(ExcelColumn.class)) {
                     ExcelColumn annotation = field.getAnnotation(ExcelColumn.class);
-                    field.setAccessible(true); // private 필드에 접근 가능하도록 설정
-                    fieldMap.put(annotation.colIndex(), field);
+                    // colIndex가 -1이 아닌 필드만 맵에 추가
+                    if (annotation.colIndex() >= 0) {
+                        field.setAccessible(true); // private 필드에 접근 가능하도록 설정
+                        fieldMap.put(annotation.colIndex(), field);
+                    }
                 }
             }
         }
@@ -317,7 +320,6 @@ public class ExcelUtils {
             workbook.write(response.getOutputStream());
         }
     }
-    // TODO: 엑셀 업로드(파일을 읽어 List<DTO>로 변환) 기능도 여기에 추가
 
     /**
      * 데이터를 받아 CSV 파일(.csv)로 만들어 다운로드.
