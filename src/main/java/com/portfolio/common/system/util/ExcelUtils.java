@@ -111,7 +111,7 @@ public class ExcelUtils {
                 if (field.isAnnotationPresent(ExcelColumn.class)) {
                     ExcelColumn annotation = field.getAnnotation(ExcelColumn.class);
                     // colIndex가 -1이 아닌 필드만 맵에 추가
-                    if (annotation.colIndex() > 0) {
+                    if (annotation.colIndex() >= 0) {
                         field.setAccessible(true); // private 필드에 접근 가능하도록 설정
                         fieldMap.put(annotation.colIndex(), field);
                     }
