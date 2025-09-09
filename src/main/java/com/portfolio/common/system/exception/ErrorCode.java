@@ -22,7 +22,7 @@ public enum ErrorCode {
     // E            Example 예시             Exam을 찾을 수 없습니다.(E001)
 
     /** --- 공통 관련 에러 --- */
-    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "유효하지 않은 입력 값입니다."), // 동적 인자(%s)로 입력값 포함
+    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "유효하지 않은 입력 값입니다. %s"), // 동적 인자(%s)로 입력값 포함
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "C002", "지원하지 않는 HTTP 메서드입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C003", "서버 내부 오류가 발생했습니다."),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, "C004", "잘못된 타입의 값입니다."),
