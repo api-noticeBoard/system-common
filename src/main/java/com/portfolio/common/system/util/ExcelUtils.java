@@ -1,5 +1,7 @@
 package com.portfolio.common.system.util;
 
+import com.portfolio.common.system.exception.BusinessException;
+import com.portfolio.common.system.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.openxml4j.opc.OPCPackage;
@@ -43,160 +45,204 @@ public class ExcelUtils {
         try (InputStream inputStream = file.getInputStream();
              OPCPackage opcPackage = OPCPackage.open(inputStream)) {
 
+            // 1. 엑셀 파일(.xlsx)의 기본 구성 요소를 읽어옵니다.
             XSSFReader xssfReader = new XSSFReader(opcPackage);
-            Styles styles = xssfReader.getStylesTable();
-            SharedStrings sharedStrings = xssfReader.getSharedStringsTable();
+            Styles styles = xssfReader.getStylesTable(); // 셀 스타일 정보
+            SharedStrings sharedStrings = xssfReader.getSharedStringsTable(); // 중복 문자열 정보
 
-            // 엑셀 파일의 첫 번째 시트만 처리하도록 설정합니다.
-            InputStream sheetInputStream = xssfReader.getSheetsData().next();
-            InputSource sheetSource = new InputSource(sheetInputStream);
-
-            // SAX 파싱을 위한 ContentHandler를 생성합니다.
-            // 핵심 로직은 우리가 직접 만든 SheetContentsHandlerImpl에 있습니다.
-            ContentHandler handler = new XSSFSheetXMLHandler(
-                    styles,
-                    null, // CommentsTable
-                    sharedStrings,
-                    new SheetContentsHandlerImpl<>(dtoClass, resultList), // ✨ 커스텀 핸들러
-                    new DataFormatter(), // 모든 셀 데이터를 문자열로 포맷팅
-                    false
-            );
-
-            log.info("SheetContentsHandlerImpl initialized for dtoClass: {}", dtoClass.getName()); // 추가
-            // SAXParserFactory 인스턴스를 생성.
+            // 2. XML을 파싱할 SAX 파서를 설정합니다.
             SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
-
-            // XXE(XML External Entity) 공격을 방지하기 위해 외부 엔티티 관련 기능을 비활성화. (보안 설정)
+            // 보안 설정: XXE(XML External Entity) 공격 방지
+            /** 엑셀 시트 내부의 XML은 특정 네임스페이스(Namespace)를 사용하여 정의되는데, SAX 파서가 이 네임스페이스를 인지하도록 설정되지 않으면 <row>나 <c> 같은 태그들을 인식하지 못하고 그냥 건너뛰게 됩 */
+            saxParserFactory.setNamespaceAware(true); // 🤬🤬🤬🤬🤬🤬네임스페이스 인지하도록 설정
             saxParserFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             saxParserFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            saxParserFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+//            saxParserFactory.setFeature("http://xml/org/sax/features/external-parameter-entities", false);
 
-            // 팩토리로부터 SAXParser를 생성합니다.
             SAXParser saxParser = saxParserFactory.newSAXParser();
-
-            // SAXParser로부터 XMLReader를 얻어옵니다.
             XMLReader sheetParser = saxParser.getXMLReader();
 
-            sheetParser.setContentHandler(handler);
-            sheetParser.parse(sheetSource);
-            sheetInputStream.close();
-            log.info("Excel parsing completed. Result list size: {}", resultList.size()); // 추가
+            // 3. 엑셀 파일 내의 모든 시트를 순회하며 처리합니다.
+            XSSFReader.SheetIterator sheetIterator = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+            while (sheetIterator.hasNext()) {
+                try (InputStream sheetInputStream = sheetIterator.next()) {
+                    String sheetName = sheetIterator.getSheetName();
+                    log.info("엑셀 시트 처리 시작: '{}'", sheetName);
+
+                    // 4. 실제 파싱 로직을 담당할 커스텀 핸들러를 생성합니다.
+                    ContentHandler handler = new XSSFSheetXMLHandler(
+                            styles,
+                            null, // ✅ 올바른 위치: CommentsTable은 보통 null입니다.
+                            sharedStrings, // ✅ 올바른 위치: 세 번째 인자가 SharedStrings 자리입니다.
+                            new RowProcessingHandler<>(dtoClass, resultList), // ✅ 올바른 위치: 네 번째가 실제 핸들러 자리입니다.
+                            new DataFormatter(),
+                            false
+                    );
+                    sheetParser.setContentHandler(handler);
+
+                    // 5. 시트 파싱을 실행합니다.
+                    InputSource sheetSource = new InputSource(sheetInputStream);
+                    sheetParser.parse(sheetSource);
+
+                    // 6. 데이터가 있는 첫 번째 시트만 처리하고 중단합니다.
+                    if (!resultList.isEmpty()) {
+                        log.info("시트 '{}'에서 데이터를 성공적으로 파싱했습니다. 업로드를 종료합니다.", sheetName);
+                        break;
+                    }
+                }
+            }
+
+            log.info("엑셀 파싱 완료. 총 {}개의 데이터를 변환했습니다.", resultList.size());
+
         } catch (Exception e) {
-            log.error("Failed to parse excel file.", e);
-            // 실제 운영에서는 BusinessException 등 커스텀 예외를 던지는 것이 더 좋습니다.
-            throw new RuntimeException("엑셀 파일 파싱에 실패했습니다. 파일 형식이나 내용을 확인해주세요.", e);
+            log.error("엑셀 파일 파싱 중 심각한 오류가 발생했습니다.", e);
+            throw new RuntimeException("엑셀 파일 처리 중 오류가 발생했습니다. 파일 형식이나 내용을 확인해주세요.", e);
         }
         return resultList;
     }
 
     /**
-     * SAX 파싱 이벤트를 처리하는 커스텀 핸들러 클래스. (내부 private 클래스)
-     * 엑셀의 한 행(row)이 끝날 때마다 DTO 객체를 생성하여 리스트에 추가합니다.
+     * 엑셀의 각 행(Row)을 DTO로 변환하는 SAX 이벤트 핸들러 클래스입니다.
      */
-    private static class SheetContentsHandlerImpl<T> implements XSSFSheetXMLHandler.SheetContentsHandler {
+    private static class RowProcessingHandler<T> implements XSSFSheetXMLHandler.SheetContentsHandler {
+
+        private static final int HEADER_ROW_COUNT = 1; // 건너뛸 헤더 행의 수
+
         private final Class<T> dtoClass;
         private final List<T> resultList;
-        private final Map<Integer, Field> fieldMap; // 컬럼 인덱스와 DTO 필드를 미리 매핑해둔 맵
+        private final Map<Integer, Field> fieldMap; // {엑셀 컬럼 인덱스: DTO 필드}
 
-        private Map<Integer, String> currentRowData;    // 현재 읽고 있는 행의 데이터를 임시 저장 (컬럼 인덱스, 셀 값)
-        private int currentRowNum = -1;                 // 현재 행 번호를 추적하기 위한 필드 추가
-        private final int headerRowCount = 1;           // 헤더로 간주하고 건너뛸 행의 수 (보통 1)
+        private Map<Integer, String> currentRowData; // 현재 처리 중인 행의 데이터를 임시 저장 {컬럼 인덱스: 셀 값}
+        private int currentRowNum = -1; // 현재 행 번호를 추적하기 위한 필드 추가
 
-        public SheetContentsHandlerImpl(Class<T> dtoClass, List<T> resultList) {
+        public RowProcessingHandler(Class<T> dtoClass, List<T> resultList) {
             this.dtoClass = dtoClass;
             this.resultList = resultList;
-            this.fieldMap = new HashMap<>();
+            this.fieldMap = mapFieldsToColumnIndex(dtoClass);
+        }
 
-            // DTO 클래스를 미리 분석하여 @ExcelColumn 어노테이션의 colIndex와 필드를 매핑해둡니다.
-            // 이렇게 하면 매 행마다 리플렉션을 반복하지 않아 성능이 향상됩니다.
-            for (Field field : dtoClass.getDeclaredFields()) {
+        /**
+         * DTO 클래스를 분석하여 @ExcelColumn 어노테이션의 colIndex와 필드를 미리 매핑합니다.
+         * 이 작업은 성능 향상을 위해 생성자에서 한 번만 수행됩니다.
+         */
+        private Map<Integer, Field> mapFieldsToColumnIndex(Class<T> clazz) {
+            Map<Integer, Field> mappedFields = new HashMap<>();
+            for (Field field : clazz.getDeclaredFields()) {
                 if (field.isAnnotationPresent(ExcelColumn.class)) {
                     ExcelColumn annotation = field.getAnnotation(ExcelColumn.class);
-                    // colIndex가 -1이 아닌 필드만 맵에 추가
                     if (annotation.colIndex() >= 0) {
                         field.setAccessible(true); // private 필드에 접근 가능하도록 설정
-                        fieldMap.put(annotation.colIndex(), field);
+                        mappedFields.put(annotation.colIndex(), field);
                     }
                 }
             }
+            return mappedFields;
         }
 
+        /**
+         * 행(Row)의 시작을 처리하는 이벤트입니다.
+         * 데이터 행인 경우, 데이터를 담을 임시 저장소를 초기화합니다.
+         */
         @Override
         public void startRow(int rowNum) {
-            this.currentRowNum = rowNum; // 현재 행 번호 업데이트
-            // 헤더 행(들)은 건너뜁니다.
-            if (rowNum >= headerRowCount) {
+            this.currentRowNum = rowNum;
+            // 헤더 행은 건너뛰고, 데이터 행부터 처리합니다.
+            if (rowNum >= HEADER_ROW_COUNT) {
                 this.currentRowData = new HashMap<>();
-                log.info("Starting row: {}", rowNum); // 추가
-            }
-        }
-
-        @Override
-        public void endRow(int rowNum) {
-            // 데이터 행이 끝났고, 해당 행에 데이터가 하나라도 있는 경우에만 처리합니다.
-            if (rowNum >= headerRowCount && currentRowData != null && !currentRowData.isEmpty()) {
-                log.info("Ending row: {}. Data: {}", rowNum, currentRowData); // 추가
-                try {
-                    // 1. DTO 객체의 새 인스턴스를 생성합니다.
-                    T currentDto = dtoClass.getDeclaredConstructor().newInstance();
-
-                    // 2. 현재 행의 데이터를 DTO 필드에 하나씩 설정합니다.
-                    currentRowData.forEach((colIndex, value) -> {
-                        Field field = fieldMap.get(colIndex); // 매핑된 필드를 찾음
-                        if (field != null) {
-                            try {
-                                // 3. 셀 값(String)을 필드의 실제 타입(Long, Integer 등)으로 변환하여 설정
-                                Object convertedValue = convertValueToFieldType(value, field.getType());
-                                field.set(currentDto, convertedValue);
-                            } catch (Exception e) {
-                                // 특정 셀의 값 변환에 실패하더라도 전체 프로세스가 멈추지 않도록 처리
-                                log.warn("Failed to set field '{}' with value '{}' for row {}", field.getName(), value, rowNum + 1, e);
-                            }
-                        }
-                    });
-
-                    // 4. 완성된 DTO를 최종 결과 리스트에 추가합니다.
-                    resultList.add(currentDto);
-                } catch (Exception e) {
-                    log.error("Failed to create DTO instance for row {}", rowNum + 1, e);
-                }
-            }
-            else if (rowNum >= headerRowCount && (currentRowData == null || currentRowData.isEmpty())) {
-                log.info("Row {} was skipped because it had no data or was empty after header processing.", rowNum + 1); // 추가
-            }
-            this.currentRowData = null; // 다음 행을 위해 현재 행 데이터 초기화
-        }
-
-        @Override
-        public void cell(String cellReference, String formattedValue, org.apache.poi.xssf.usermodel.XSSFComment comment) {
-            if (currentRowData != null) {
-                // 셀 주소(예: "A1", "C5")에서 컬럼 인덱스(0, 2)를 추출하여 맵에 저장합니다.
-                int colIndex = (new org.apache.poi.ss.util.CellReference(cellReference)).getCol();
-//                currentRowData.put(colIndex, formattedValue);
-//                log.info("Cell data read: {}({}) = {}", cellReference, colIndex, formattedValue); // 추가
-                // 값이 비어있거나 공백만 있는 셀은 무시할 수 있습니다. (선택사항)
-                if (formattedValue != null && !formattedValue.isBlank()) {
-                    currentRowData.put(colIndex, formattedValue);
-                    log.info("[Excel Parsing] ==> Cell Read at row {}: ref={}, col={}, value='{}'", currentRowNum + 1, cellReference, colIndex, formattedValue); // ✨ 로그 추가
-                }
+                log.info("[Handler] 데이터 행 시작: {}", rowNum + 1);
+            } else {
+                log.info("[Handler] 헤더 행 건너뜀: {}", rowNum + 1);
             }
         }
 
         /**
-         * 문자열 값을 DTO 필드의 실제 타입으로 변환하는 헬퍼 메서드
+         * 셀(Cell)을 처리하는 이벤트입니다.
+         * 현재 행의 임시 저장소에 셀 데이터를 추가합니다.
+         */
+        @Override
+        public void cell(String cellReference, String formattedValue, org.apache.poi.xssf.usermodel.XSSFComment comment) {
+            // startRow에서 데이터 행 처리가 시작된 경우에만 (currentRowData != null) 동작합니다.
+            if (currentRowData != null && formattedValue != null && !formattedValue.isBlank()) {
+                int colIndex = new org.apache.poi.ss.util.CellReference(cellReference).getCol();
+                currentRowData.put(colIndex, formattedValue);
+                log.info("[Handler] 셀 데이터 읽음 (행 {}): ref={}, 값='{}'", currentRowNum + 1, cellReference, formattedValue);
+            }
+        }
+
+        /**
+         * 행(Row)의 끝을 처리하는 이벤트입니다.
+         * 수집된 행 데이터를 바탕으로 DTO 객체를 생성하고 결과 리스트에 추가합니다.
+         */
+        @Override
+        public void endRow(int rowNum) {
+            // 데이터가 있는 데이터 행이 끝났을 때만 DTO 변환을 시도합니다.
+            if (isProcessableDataRow(rowNum)) {
+                log.info("[Handler] 데이터 행 종료 (행 {}): 수집된 데이터={}", rowNum + 1, currentRowData);
+                try {
+                    T dto = createDtoFromRowData();
+                    resultList.add(dto);
+                    log.info("[Handler] DTO 변환 성공 (행 {})", rowNum + 1);
+                } catch (Exception e) {
+                    log.error("[Handler] DTO 변환 실패 (행 {})", rowNum + 1, e);
+                }
+            }
+            // 다음 행을 위해 현재 행 데이터는 초기화합니다.
+            this.currentRowData = null;
+        }
+
+        /**
+         * 현재 행이 DTO로 변환할 가치가 있는 데이터 행인지 확인합니다.
+         */
+        private boolean isProcessableDataRow(int rowNum) {
+            return rowNum >= HEADER_ROW_COUNT && currentRowData != null && !currentRowData.isEmpty();
+        }
+
+        /**
+         * 수집된 행 데이터를 바탕으로 DTO 객체를 생성하고 필드 값을 채웁니다.
+         */
+        private T createDtoFromRowData() throws ReflectiveOperationException {
+            T dtoInstance = dtoClass.getDeclaredConstructor().newInstance();
+
+            for (Map.Entry<Integer, String> dataEntry : currentRowData.entrySet()) {
+                Field field = fieldMap.get(dataEntry.getKey());
+                if (field != null) {
+                    setFieldValue(dtoInstance, field, dataEntry.getValue());
+                }
+            }
+            return dtoInstance;
+        }
+
+        /**
+         * 리플렉션을 사용하여 DTO 객체의 특정 필드에 값을 설정합니다.
+         * 값의 타입 변환도 이 메서드에서 처리합니다.
+         */
+        private void setFieldValue(T dtoInstance, Field field, String value) {
+            try {
+                Object convertedValue = convertValueToFieldType(value, field.getType());
+                field.set(dtoInstance, convertedValue);
+            } catch (Exception e) {
+                // 특정 필드 값 설정에 실패하더라도 전체 행의 변환이 멈추지 않도록 경고만 기록합니다.
+                log.warn("필드 '{}'에 값 '{}'을(를) 설정하는 데 실패했습니다. 원인: {}", field.getName(), value, e.getMessage());
+            }
+        }
+
+        /**
+         * 엑셀에서 읽은 문자열 값을 DTO 필드의 실제 타입으로 변환합니다.
          */
         private Object convertValueToFieldType(String value, Class<?> fieldType) {
-            if (value == null || value.isBlank()) return null;
+            if (value == null || value.isBlank()) {
+                return null;
+            }
             try {
                 if (fieldType.equals(String.class)) return value;
-                if (fieldType.equals(Long.class) || fieldType.equals(long.class)) return Long.parseLong(value);
-                if (fieldType.equals(Integer.class) || fieldType.equals(int.class)) return Integer.parseInt(value);
-                if (fieldType.equals(Double.class) || fieldType.equals(double.class)) return Double.parseDouble(value);
-                if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) return Boolean.parseBoolean(value);
-                // TODO: 날짜(LocalDateTime) 등 다른 타입에 대한 변환 로직 추가 필요
+                if (fieldType.equals(Long.class) || fieldType.equals(long.class)) return Long.parseLong(value.trim());
+                if (fieldType.equals(Integer.class) || fieldType.equals(int.class)) return Integer.parseInt(value.trim());
+                if (fieldType.equals(Double.class) || fieldType.equals(double.class)) return Double.parseDouble(value.trim());
+                if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) return Boolean.parseBoolean(value.trim());
+                // TODO: 필요에 따라 날짜(LocalDateTime) 등 다른 타입 변환 로직을 추가할 수 있습니다.
             } catch (NumberFormatException e) {
-                log.warn("Cannot convert '{}' to type {}. Returning null.", value, fieldType.getSimpleName());
-                return null; // 숫자 변환 실패 시 null 반환
+                log.warn("'{}' 값을 숫자 타입({})으로 변환할 수 없습니다. null로 처리됩니다.", value, fieldType.getSimpleName());
+                return null;
             }
             return value;
         }
