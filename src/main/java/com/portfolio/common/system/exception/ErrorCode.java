@@ -22,7 +22,7 @@ public enum ErrorCode {
     // E            Example 예시             Exam을 찾을 수 없습니다.(E001)
 
     /** --- 공통 관련 에러 --- */
-    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "유효하지 않은 입력 값입니다. %s"), // 동적 인자(%s)로 입력값 포함
+    INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "유효하지 않은 입력 값입니다."), // 동적 인자(%s)로 입력값 포함
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "C002", "지원하지 않는 HTTP 메서드입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C003", "서버 내부 오류가 발생했습니다."),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, "C004", "잘못된 타입의 값입니다."),
@@ -39,11 +39,16 @@ public enum ErrorCode {
     PARENT_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P005", "존재하지 않는 부모 카테고리입니다."),
     CHILD_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P006", "존재하지 않는 자식 카테고리입니다."),
     /** --- 예시 --- */
-    EXAM_NOT_FOUND(HttpStatus.NOT_FOUND, "E001", "Exam을 찾을 수 없습니다.: %d");
+    EXAM_NOT_FOUND(HttpStatus.NOT_FOUND, "E001", "Exam을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
     private final String message;
+
+    // getMessage() 메서드를 단순화합니다.
+    public String getMessage() {
+        return this.message;
+    }
 
     /**
      * 동적 메시지 생성 메서드.

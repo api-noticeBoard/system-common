@@ -77,6 +77,13 @@ public class ErrorResponse {
         this.errors = null; // 필드 에러가 없으므로 null로 설정 (@JsonInclude에 의해 최종 JSON에서 생략됨)
     }
 
+    private ErrorResponse(final ErrorCode code, final String detailMessage) {
+        this.message = detailMessage;
+        this.code = code.getCode();
+        this.traceId = MDC.get("traceId");
+        this.errors = null; // 필드 에러가 없으므로 null로 설정 (@JsonInclude에 의해 최종 JSON에서 생략됨)
+    }
+
     /**
      * [정적 팩토리 메서드]
      * 외부에서 ErrorResponse 객체를 생성할 때 사용하는 기본 진입점. (필드 에러 없음)
@@ -87,6 +94,14 @@ public class ErrorResponse {
      */
     public static ErrorResponse of(final ErrorCode code) {
         return new ErrorResponse(code);
+    }
+
+    /**
+     BusinessException 객체 자체를 받아 ErrorResponse를 생성하는 정적 팩토리 메서드.
+     이 메서드는 예외 객체에 저장된 최종 메시지를 사용합니다.
+     */
+    public static ErrorResponse of(final BusinessException e) {
+        return new ErrorResponse(e.getErrorCode(), e.getMessage());
     }
 
     /**
