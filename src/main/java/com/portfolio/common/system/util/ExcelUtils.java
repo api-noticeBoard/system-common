@@ -62,6 +62,7 @@ public class ExcelUtils {
                     false
             );
 
+            log.info("SheetContentsHandlerImpl initialized for dtoClass: {}", dtoClass.getName()); // 추가
             // SAXParserFactory 인스턴스를 생성.
             SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 
@@ -79,7 +80,7 @@ public class ExcelUtils {
             sheetParser.setContentHandler(handler);
             sheetParser.parse(sheetSource);
             sheetInputStream.close();
-
+            log.info("Excel parsing completed. Result list size: {}", resultList.size()); // 추가
         } catch (Exception e) {
             log.error("Failed to parse excel file.", e);
             // 실제 운영에서는 BusinessException 등 커스텀 예외를 던지는 것이 더 좋습니다.
@@ -124,6 +125,7 @@ public class ExcelUtils {
             // 헤더 행(들)은 건너뜁니다.
             if (rowNum >= headerRowCount) {
                 this.currentRowData = new HashMap<>();
+                log.info("Starting row: {}", rowNum); // 추가
             }
         }
 
@@ -131,6 +133,7 @@ public class ExcelUtils {
         public void endRow(int rowNum) {
             // 데이터 행이 끝났고, 해당 행에 데이터가 하나라도 있는 경우에만 처리합니다.
             if (rowNum >= headerRowCount && currentRowData != null && !currentRowData.isEmpty()) {
+                log.info("Ending row: {}. Data: {}", rowNum, currentRowData); // 추가
                 try {
                     // 1. DTO 객체의 새 인스턴스를 생성합니다.
                     T currentDto = dtoClass.getDeclaredConstructor().newInstance();
@@ -156,6 +159,9 @@ public class ExcelUtils {
                     log.error("Failed to create DTO instance for row {}", rowNum + 1, e);
                 }
             }
+            else if (rowNum >= headerRowCount && (currentRowData == null || currentRowData.isEmpty())) {
+                log.warn("Row {} was skipped because it had no data or was empty after header processing.", rowNum); // 추가
+            }
             this.currentRowData = null; // 다음 행을 위해 현재 행 데이터 초기화
         }
 
@@ -165,6 +171,7 @@ public class ExcelUtils {
                 // 셀 주소(예: "A1", "C5")에서 컬럼 인덱스(0, 2)를 추출하여 맵에 저장합니다.
                 int colIndex = (new org.apache.poi.ss.util.CellReference(cellReference)).getCol();
                 currentRowData.put(colIndex, formattedValue);
+                log.info("Cell data read: {}({}) = {}", cellReference, colIndex, formattedValue); // 추가
             }
         }
 
