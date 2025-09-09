@@ -38,6 +38,8 @@ public enum ErrorCode {
     CATEGORY_DUPLICATIED(HttpStatus.CONFLICT, "P004", "이미 존재하는 카테고리입니다."),
     PARENT_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P005", "존재하지 않는 부모 카테고리입니다."),
     CHILD_CATEGORY_NOT_FOUND(HttpStatus.NOT_FOUND, "P006", "존재하지 않는 자식 카테고리입니다."),
+    /** --- 파일 관련 에러 --- */
+    FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "파일이 존재하지 않습니다. %s"),
     /** --- 예시 --- */
     EXAM_NOT_FOUND(HttpStatus.NOT_FOUND, "E001", "Exam을 찾을 수 없습니다.");
 
