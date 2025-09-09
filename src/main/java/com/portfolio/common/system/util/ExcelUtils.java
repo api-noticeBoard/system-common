@@ -98,8 +98,9 @@ public class ExcelUtils {
         private final List<T> resultList;
         private final Map<Integer, Field> fieldMap; // 컬럼 인덱스와 DTO 필드를 미리 매핑해둔 맵
 
-        private Map<Integer, String> currentRowData; // 현재 읽고 있는 행의 데이터를 임시 저장 (컬럼 인덱스, 셀 값)
-        private final int headerRowCount = 1; // 헤더로 간주하고 건너뛸 행의 수 (보통 1)
+        private Map<Integer, String> currentRowData;    // 현재 읽고 있는 행의 데이터를 임시 저장 (컬럼 인덱스, 셀 값)
+        private int currentRowNum = -1;                 // 현재 행 번호를 추적하기 위한 필드 추가
+        private final int headerRowCount = 1;           // 헤더로 간주하고 건너뛸 행의 수 (보통 1)
 
         public SheetContentsHandlerImpl(Class<T> dtoClass, List<T> resultList) {
             this.dtoClass = dtoClass;
@@ -122,6 +123,7 @@ public class ExcelUtils {
 
         @Override
         public void startRow(int rowNum) {
+            this.currentRowNum = rowNum; // 현재 행 번호 업데이트
             // 헤더 행(들)은 건너뜁니다.
             if (rowNum >= headerRowCount) {
                 this.currentRowData = new HashMap<>();
@@ -160,7 +162,7 @@ public class ExcelUtils {
                 }
             }
             else if (rowNum >= headerRowCount && (currentRowData == null || currentRowData.isEmpty())) {
-                log.warn("Row {} was skipped because it had no data or was empty after header processing.", rowNum); // 추가
+                log.info("Row {} was skipped because it had no data or was empty after header processing.", rowNum + 1); // 추가
             }
             this.currentRowData = null; // 다음 행을 위해 현재 행 데이터 초기화
         }
@@ -170,8 +172,13 @@ public class ExcelUtils {
             if (currentRowData != null) {
                 // 셀 주소(예: "A1", "C5")에서 컬럼 인덱스(0, 2)를 추출하여 맵에 저장합니다.
                 int colIndex = (new org.apache.poi.ss.util.CellReference(cellReference)).getCol();
-                currentRowData.put(colIndex, formattedValue);
-                log.info("Cell data read: {}({}) = {}", cellReference, colIndex, formattedValue); // 추가
+//                currentRowData.put(colIndex, formattedValue);
+//                log.info("Cell data read: {}({}) = {}", cellReference, colIndex, formattedValue); // 추가
+                // 값이 비어있거나 공백만 있는 셀은 무시할 수 있습니다. (선택사항)
+                if (formattedValue != null && !formattedValue.isBlank()) {
+                    currentRowData.put(colIndex, formattedValue);
+                    log.info("[Excel Parsing] ==> Cell Read at row {}: ref={}, col={}, value='{}'", currentRowNum + 1, cellReference, colIndex, formattedValue); // ✨ 로그 추가
+                }
             }
         }
 
@@ -289,6 +296,7 @@ public class ExcelUtils {
                         if (value != null){
                             dataCell.setCellValue(value.toString());
                         }
+
                     }catch (IllegalAccessException e){
                         // 필드를 못찾거나 접근할 수 없는 경우
                         log.error("Failed to get field value via ref lection", e);
