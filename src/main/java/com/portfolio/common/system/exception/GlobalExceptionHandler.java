@@ -56,14 +56,18 @@ public class GlobalExceptionHandler {
         // 마지막 인자로 예외 객체(e)를 전달하면 스택 트레이스(Stack Trace)도 함께 로깅.
         log.error("handleBusinessException: {} - {}", e.getErrorCode(), e.getMessage(), e);
 
-        // 발생한 예외로부터 ErrorCode를 가져 옴.
-        final ErrorCode errorCode = e.getErrorCode();
+//        // 발생한 예외로부터 ErrorCode를 가져 옴.
+//        final ErrorCode errorCode = e.getErrorCode();
+//
+//        // ErrorCode를 사용하여 표준 에러 응답 DTO를 생성.
+//        final ErrorResponse response = ErrorResponse.of(errorCode);
 
-        // ErrorCode를 사용하여 표준 에러 응답 DTO를 생성.
-        final ErrorResponse response = ErrorResponse.of(errorCode);
+        // ✨ [핵심 수정] ErrorCode만 넘기는 대신, 예외 객체(e) 자체를 넘겨
+        //    상세 메시지가 포함된 ErrorResponse를 생성하도록 합니다.
+        final ErrorResponse response = ErrorResponse.of(e);
 
         // 생성된 ErrorResponse 객체와 ErrorCode에 정의된 HTTP 상태 코드를 담아 ResponseEntity를 반환.
-        return new ResponseEntity<>(response, errorCode.getStatus());
+        return new ResponseEntity<>(response, e.getErrorCode().getStatus());
     }
 
     /**
