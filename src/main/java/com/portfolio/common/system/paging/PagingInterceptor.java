@@ -127,7 +127,7 @@ public class PagingInterceptor implements Interceptor {
     // totalCount를 계산하는 퀴리조작 메서드
     private String generateCountSql(String originalSql) {
         String countSql = originalSql.replaceAll("(?i)order\\s+by[\\s\\S]+", "");
-        return "SELECT COUNT(*) FROM (" + countSql + ") AS count_table";
+        return "SELECT COUNT(*) FROM (" + countSql + ") count_table";
     }
 
     // 페이징 정렬 쿼리 조작 메서드
