@@ -1,5 +1,7 @@
 package com.portfolio.common.system.util;
 
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
 import com.portfolio.common.system.exception.BusinessException;
 import com.portfolio.common.system.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,9 +22,7 @@ import org.xml.sax.XMLReader;
 
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -380,6 +380,109 @@ public class ExcelUtils {
             // 생성된 엑셀(Workbook)의 내용을 HTTP 응답의 출력 스트림(OutputStream)에 씀
             workbook.write(response.getOutputStream());
         }
+    }
+
+    /**
+     * CSV 파일을 업로드하여 DTO 리스트로 변환합니다.
+     * 한 줄씩 읽어 처리하므로 대용량 파일 처리에도 효율적입니다.
+     *
+     * @param file     클라이언트로부터 업로드된 MultipartFile 객체 (CSV)
+     * @param dtoClass 변환할 DTO의 클래스 타입
+     * @param <T>      DTO의 제네릭 타입
+     * @return DTO 객체 리스트
+     */
+    public static <T> List<T> uploadCsv(MultipartFile file, Class<T> dtoClass) {
+        List<T> resultList = new ArrayList<>();
+
+        // 1. DTO 클래스를 분석하여 엑셀 컬럼 인덱스와 필드를 미리 매핑.
+        Map<Integer, Field> fieldMap = new HashMap<>();
+        for (Field field : dtoClass.getDeclaredFields()) {
+            if (field.isAnnotationPresent(ExcelColumn.class)) {
+                ExcelColumn annotation = field.getAnnotation(ExcelColumn.class);
+                if (annotation.colIndex() >= 0) {
+                    field.setAccessible(true); // private 필드에 접근 가능하도록 설정
+                    fieldMap.put(annotation.colIndex(), field);
+                }
+            }
+        }
+
+        // 2. try-with-resources를 사용해 파일을 안전히 읽음.
+        // CSVReaderBuilder를 사용하여 CSVReader를 설정하고 생성.
+        try (
+                // UTF-8 인코딩으로 한글 깨짐 방지
+                InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+                // 3. CSVReaderBuilder를 사용하여 첫 번째 줄(헤더)을 건너뛰기
+                CSVReader csvReader = new CSVReaderBuilder(reader)
+                    .withSkipLines(1) // 헤더 1번줄 건너뛰기
+                    .build()
+        ) {
+            // 3. CSV 데이터를 String배열로 순회
+            for (String[] record : csvReader) {
+                // CSV의 한 행을 담기 위한 새로운 DTO 객체 인스턴스를 생성.
+                // 'getDeclaredConstructor().newInstance()'는 리플렉션을 사용해 동적으로 객체 생성.
+                T dtoInstance = dtoClass.getDeclaredConstructor().newInstance();
+                // 현재 행에 유효한 데이터가 있는지 추적하기 위한 플래그
+                // 초기값은 false, 데이터가 발견되면 true.
+                boolean hasData = false;
+
+                // 4. 매핑한 fieldMap 기반으로 DTO 객체 채움.
+                for (Map.Entry<Integer, Field> entry : fieldMap.entrySet()) {
+                    // 맵에서 현재 처리할 컬럼의 인덱스(예: 0, 1, 2)를 가져옵니다.
+                    int colIndex = entry.getKey();
+                    // 맵에서 해당 컬럼 인덱스에 매핑된 DTO의 Field 객체(예: private Long id;)를 가져옵니다.
+                    Field field = entry.getValue();
+
+                    if (colIndex < record.length) {
+                        String value = record[colIndex].trim(); // 공백 제거
+                        if (value != null && !value.isEmpty()){
+                            Object convertedVValue = convertValueToFieldType(value, field.getType());
+                            field.set(dtoInstance, convertedVValue);
+                            hasData = true;
+                        }
+                    }
+                }
+
+                if (hasData) {
+                    resultList.add(dtoInstance);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("CSV 파일 파싱 중 오류가 발생했습니다.", e);
+            throw new RuntimeException("CSV 파일 처리 중 오류가 발생했습니다. 파일 형식이나 내용을 확인해주세요.");
+        }
+        
+        return resultList;
+    }
+
+    /**
+     * 문자열 값을 DTO 필드의 실제 타입으로 변환하는 헬퍼 메서드
+     * (DOM 방식 Excel 파서와 CSV 파서에서 공통으로 사용)
+     *
+     * @param value     변환할 문자열 값
+     * @param fieldType 목표 필드의 타입 (e.g., Long.class)
+     * @return 변환된 객체
+     */
+    private static Object convertValueToFieldType(String value, Class<?> fieldType) {
+        // value가 없으면 바로 리턴.
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        // trim()으로 공백제거후 변환.
+        String trimmedValue = value.trim();
+        try {
+            if (fieldType.equals(String.class)) return trimmedValue;
+            if (fieldType.equals(Long.class) || fieldType.equals(long.class))       return Long.parseLong(trimmedValue);
+            if (fieldType.equals(Integer.class) || fieldType.equals(int.class))     return Integer.parseInt(trimmedValue);
+            if (fieldType.equals(Double.class) || fieldType.equals(double.class))   return Double.parseDouble(trimmedValue);
+            if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) return Boolean.parseBoolean(trimmedValue);
+            // TODO: 필요에 딸 LocalDateTime등 다른 타입 추가
+        } catch (NumberFormatException e) {
+            log.warn("'{}' 값을 숫자 타입({})으로 변환 할 수 없습니다. null 처리 됩니다.", trimmedValue, fieldType.getSimpleName());
+            return null; // 숫자 변환에 실패하면 null 반환.
+        }
+        // 지원하지 않는 타입의 경우, 원본 문자열 리턴.
+        return trimmedValue;
     }
 
     /**

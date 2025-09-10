@@ -129,4 +129,33 @@ public class ExcelUtilsTest {
                 inputStream           // 파일의 실제 내용 (Stream)
         );
     }
+
+    @Test
+    @DisplayName("유효CSV 시 DTO리스트 변환")
+    void uploadCSVTest() throws IOException{
+        // give : 테스트 파일 준비
+        MultipartFile file = createMockMultipartFile("upload_csv.csv", "test/csv");
+
+        // when : uploadCSV 메서드 실행
+        List<UploadRequest> resultList  = ExcelUtils.uploadCsv(file, UploadRequest.class);
+
+        // then : 결과 검증
+        log.info("resultList  : {}", resultList );
+
+        assertThat(resultList).isNotNull();
+        assertThat(resultList).hasSize(2);
+
+        // 첫 번째 DTO 객체의 내용을 상세히 검증합니다.
+        UploadRequest firstDto = resultList.get(0);
+        assertThat(firstDto.getTitle()).isEqualTo("CSV테스트1");
+        assertThat(firstDto.getContent()).isEqualTo("csv테스트");
+        assertThat(firstDto.getCategoryId()).isEqualTo(65L);
+
+        // ✨ [핵심 검증] 두 번째 DTO 객체의 내용을 상세히 검증합니다.
+        // Apache Commons CSV 덕분에 따옴표로 묶인 필드 안의 쉼표가 올바르게 처리됩니다.
+        UploadRequest secondDto = resultList.get(1);
+        assertThat(secondDto.getTitle()).isEqualTo("CSV테스트2");
+        assertThat(secondDto.getContent()).isEqualTo("csv테스트,csv테스트");
+        assertThat(secondDto.getCategoryId()).isEqualTo(65L);
+    }
 }
