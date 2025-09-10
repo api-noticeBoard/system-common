@@ -14,8 +14,12 @@ import org.apache.ibatis.session.ResultHandler;
 import org.apache.ibatis.session.RowBounds;
 import org.springframework.util.StringUtils;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 @Slf4j
 // @Intercepts: 이 클래스가 어떤 메서드를 가로챌지(intercept) 정의합니다.
@@ -26,6 +30,21 @@ import java.util.Map;
 @Intercepts({@Signature(type = Executor.class, method = "query"
         , args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class})})
 public class PagingInterceptor implements Interceptor {
+
+    // DB 종류를 저장할 변수
+    private String databaseType;
+
+    /**
+     * 인터셉터가 생성될 때 mybatis-config.xml 이나 Spring 설정에서 넘겨준
+     * 프로퍼티(DB dialect 등)를 설정하는 메서드입니다.
+     * 여기서는 DB 종류를 파악하기 위해 사용합니다.
+     */
+    @Override
+    public void setProperties(Properties properties) {
+        // 이 부분은 필수는 아니지만, 명시적으로 DB 타입을 설정하고 싶을 때 사용 가능
+        // 예: <plugin interceptor="..."><property name="databaseType" value="oracle"/></plugin>
+    }
+
     /**
      * 실제로 모든 요청을 가로채서 로직을 수행하는 핵심 메서드입니다.
      * @param invocation 가로챈 원본 메서드(Executor.query)의 모든 정보(메서드 자체, 파라미터 등)를 담고 있는 객체.
@@ -52,6 +71,11 @@ public class PagingInterceptor implements Interceptor {
         Executor executor = (Executor) invocation.getTarget();           // 실제 쿼리를 실행할 주체 (택배 기사)
         BoundSql boundSql = ms.getBoundSql(parameterObject);             // 파라미터가 적용된 SQL과 정보
 
+        // --- DB 종류 감지 (한 번만 실행) ---
+        if (databaseType == null) {
+            this.databaseType = getDatabaseType(ms);
+        }
+
         // 2. 전체 카운트 쿼리를 실행합니다.
         Long totalCount = executeCountQuery(executor, ms, parameterObject, boundSql);
 
@@ -67,7 +91,8 @@ public class PagingInterceptor implements Interceptor {
 
         // 3. 페이징 쿼리를 생성하고 실행(원본 SQL을 가져와서 '페이징' 추가)
         String originalSql = boundSql.getSql();
-        String pagingSql = generatePagingSql(originalSql, pageRequest); // LIMIT, OFFSET 추가
+        // DB 타입에 맞는 페이징 SQL 생성
+        String pagingSql = generatePagingSql(originalSql, pageRequest, databaseType); // LIMIT, OFFSET 추가
         // 변경된 쿼리로 작성
         BoundSql pagingBoundSql = new BoundSql(ms.getConfiguration(), pagingSql, boundSql.getParameterMappings(), parameterObject);
 
@@ -76,7 +101,7 @@ public class PagingInterceptor implements Interceptor {
     }
 
     private Long executeCountQuery(Executor executor, MappedStatement ms, Object parameter, BoundSql boundSql) throws Exception {
-        String countSql = generateCountSql(boundSql.getSql());
+        String countSql = generateCountSql(boundSql.getSql(), databaseType);
 
         // ✨ [디버깅 로그] 생성된 COUNT 쿼리 자체를 로그로 출력합니다.
         log.debug(">>>> Paging Interceptor: Generated Count SQL = {}", countSql);
@@ -125,13 +150,17 @@ public class PagingInterceptor implements Interceptor {
     }
 
     // totalCount를 계산하는 퀴리조작 메서드
-    private String generateCountSql(String originalSql) {
+    private String generateCountSql(String originalSql, String dbType) {
         String countSql = originalSql.replaceAll("(?i)order\\s+by[\\s\\S]+", "");
-        return "SELECT COUNT(*) FROM (" + countSql + ") count_table";
+        if ("oracle".equals(dbType)) {
+            return "SELECT COUNT(*) FROM (" + countSql + ") count_table";   // oracle문법
+        } else{
+        return "SELECT COUNT(*) FROM (" + countSql + ") AS count_table"; // h2문법
+        }
     }
 
     // 페이징 정렬 쿼리 조작 메서드
-    private String generatePagingSql(String originalSql, PageDto.Request pageRequest) {
+    private String generatePagingSql(String originalSql, PageDto.Request pageRequest, String dbType) {
 
         StringBuilder sqlBuilder = new StringBuilder(originalSql);
 
@@ -149,9 +178,41 @@ public class PagingInterceptor implements Interceptor {
         }
 
         // --- 페이징(Limit/Offset) 처리 로직 ---
-        sqlBuilder.append(" LIMIT ").append(pageRequest.getSize());
-        sqlBuilder.append(" OFFSET ").append(pageRequest.getOffset());
+        if ("oracle".equals(dbType)) {
+            // Oracle 12c+ 표준 페이징 문법
+            // 파라미터 이름은 BoundSql에 추가할 이름과 맞춰줍니다.
+            sqlBuilder.append(" OFFSET ").append(pageRequest.getOffset());
+            sqlBuilder.append(" ROWS FETCH NEXT ").append(pageRequest.getSize());
+            sqlBuilder.append(" ROWS ONLY");
+
+        } else {
+            // H2, MySQL, PostgreSQL 등에서 사용하는 표준 페이징 문법
+            sqlBuilder.append(" LIMIT ").append(pageRequest.getSize());
+            sqlBuilder.append(" OFFSET ").append(pageRequest.getOffset());
+        }
 
         return sqlBuilder.toString();
+    }
+
+    /**
+     * MappedStatement로부터 DataSource를 얻어와 DB 종류를 파악하는 헬퍼 메서드
+     */
+    private String getDatabaseType(MappedStatement mappedStatement) {
+        DataSource dataSource = mappedStatement.getConfiguration().getEnvironment().getDataSource();
+        try (Connection connection = dataSource.getConnection()) {
+            String databaseProductName = connection.getMetaData().getDatabaseProductName();
+            if (databaseProductName.toLowerCase().contains("oracle")) {
+                return "oracle";
+            } else if (databaseProductName.toLowerCase().contains("h2")) {
+                return "h2";
+            } else if (databaseProductName.toLowerCase().contains("mysql")) {
+                return "mysql";
+            }
+            // 기타 다른 DB 추가 가능
+        } catch (SQLException e) {
+            log.error("Could not detect database type", e);
+        }
+        // 기본값 또는 감지 실패 시
+        return "default";
     }
 }
