@@ -56,8 +56,8 @@ public class ExcelUtils {
             // 보안 설정: XXE(XML External Entity) 공격 방지
             /** 엑셀 시트 내부의 XML은 특정 네임스페이스(Namespace)를 사용하여 정의되는데, SAX 파서가 이 네임스페이스를 인지하도록 설정되지 않으면 <row>나 <c> 같은 태그들을 인식하지 못하고 그냥 건너뛰게 됩 */
             saxParserFactory.setNamespaceAware(true); // 🤬🤬🤬🤬🤬🤬네임스페이스 인지하도록 설정
-            saxParserFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            saxParserFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+//            saxParserFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);        // 오라클 자체 파서 사용으로 주석처리
+//            saxParserFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);      // 오라클 자체 파서 사용으로 주석처리
 //            saxParserFactory.setFeature("http://xml/org/sax/features/external-parameter-entities", false);
 
             SAXParser saxParser = saxParserFactory.newSAXParser();
